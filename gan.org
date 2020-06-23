@@ -40,14 +40,17 @@ def main():
     np.random.default_rng(seed=args.seed)
     k = 1
     for i, (imgs, _) in enumerate(dataloader):
+
+        real_imgs = Variable(imgs.type(torch.Tensor))
+
+        valid = Variable(torch.Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)
+        fake = Variable(torch.Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)
+
         for discrim_training_step in range(k):
             z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
-            real_imgs = Variable(imgs.type(torch.Tensor))
 
             generated_imgs = gen(z)
 
-            valid = Variable(torch.Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)
-            fake = Variable(torch.Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)
             optim_discriminator.zero_grad()
 
             real_loss = loss(disc(real_imgs), valid)
@@ -56,6 +59,20 @@ def main():
             total_loss = 0.5 * (real_loss + fake_loss)
             total_loss.backward()
             optim_discriminator.step()
+
+        z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
+
+        generated_imgs = gen(z)
+
+        optim_generator.zero_grad()
+        discriminator_loss = loss(disc(generated_imgs), valid)
+
+        discriminator_loss.backward()
+        optim_generator.step()
+
+
+
+
 
 
         if (i % 400 == 0):
