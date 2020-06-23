@@ -25,6 +25,13 @@ import torch.nn.functional as F
 
 def main():
     <<preprocessing>>
+    disc = discriminator()
+    gen = generator()
+
+    k = 1
+    for training_inter in range(500):
+        for step in range(k):
+
 
 if __name__ == '__main__':
     main()
@@ -41,36 +48,25 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('data', help='path to data directory')
+parser.add_argument('batch', help='batch size')
 args = parser.parse_args()
 #+END_SRC
 
 Load data
 #+BEGIN_SRC python
-import numpy as np
-from mnist import MNIST
-
-mnist = MNIST(args.data)
-x_train, y_train = mnist.load_training()
-x_test, y_test = mnist.load_testing()
-
-x_train = np.asarray(x_train).astype(np.float32)
-y_train = np.asarray(y_train).astype(np.int32)
-x_test = np.asarray(x_test).astype(np.float32)
-y_test = np.asarray(y_test).astype(np.int32)
-#+END_SRC
-
-#+BEGIN_SRC python
-
-THRESHOLD = 125
-def black_and_white(sample):
-    adjusted = np.empty_like(sample)
-    adjusted[sample < THRESHOLD] = 0
-    adjusted[sample >= THRESHOLD] = 1
-    adjusted = adjusted.reshape(*adjusted.shape, 1)
-    return adjusted
-
-x_train = black_and_white(x_train)
-x_test = black_and_white(x_test)
+from torch.utils.data import DataLoader
+dataloader = torch.utils.data.DataLoader(
+    datasets.MNIST(
+        args.data,
+        train=True,
+        download=True,
+        transform=transforms.Compose(
+            [transforms.Resize(opt.img_size), transforms.ToTensor(), transforms.Normalize([0.5], [0.5])]
+        ),
+    ),
+    batch_size=args.batch,
+    shuffle=True,
+)
 #+END_SRC
 
 * Discriminator
@@ -84,25 +80,21 @@ class discriminator(nn.Module):
     def __init__(self, image_size=28):
       super(discriminator, self).__init__()
 
-      self.conv1 = nn.Conv2d(1, 1, 4)
-      self.pooling = nn.MaxPool2d(2, 2)
-      self.conv2 = nn.Conv2d(1, 4)
 
-      self.fc1 = nn.Linear(1 * 4 * 4, 64)
-      self.fc2 = nn.Linear(64, 32)
-      self.fc3 = nn.linear(32, 1)
+      self.fc1 = nn.Linear(image_size * image_size, 128)
+      self.fc2 = nn.Linear(128, 64)
+      self.fc3 = nn.linear(64, 1)
 
     def forward(self, x):
-        x = self.pooling(F.relu(self.conv1(x)))
-        x = self.pooling(F.relu(self.conv2(x)))
         x = x.view(-1, 1 * 4 *4)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = self.fc3(x)
-        return F.sigmoid(x)
+        x = F.sigmoid(self.fc3(x))
+        return x
 #+END_SRC
 
 * Generator
 :PROPERTIES:
 :header-args: :noweb-ref generator
 :END:
+
