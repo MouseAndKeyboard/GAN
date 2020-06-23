@@ -20,6 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
+from torchvision.utils import save_image
 
 <<discriminator>>
 
@@ -39,47 +40,43 @@ def main():
     loss = torch.nn.BCELoss()
     np.random.default_rng(seed=args.seed)
     k = 1
-    for i, (imgs, _) in enumerate(dataloader):
+    for epoch in range(args.epochs):
+        for i, (imgs, _) in enumerate(dataloader):
 
-        real_imgs = Variable(imgs.type(torch.Tensor))
+            real_imgs = Variable(imgs.type(torch.Tensor))
 
-        valid = Variable(torch.Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)
-        fake = Variable(torch.Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)
+            valid = Variable(torch.Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)
+            fake = Variable(torch.Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)
 
-        for discrim_training_step in range(k):
-            z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
+            for discrim_training_step in range(k):
+                z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
 
-            generated_imgs = gen(z)
+                generated_imgs = gen(z)
 
-            optim_discriminator.zero_grad()
+                optim_discriminator.zero_grad()
 
-            real_loss = loss(disc(real_imgs), valid)
-            fake_loss = loss(disc(generated_imgs.detach()), fake)
+                real_loss = loss(disc(real_imgs), valid)
+                fake_loss = loss(disc(generated_imgs.detach()), fake)
 
-            total_loss = 0.5 * (real_loss + fake_loss)
-            total_loss.backward()
-            optim_discriminator.step()
+                total_loss = 0.5 * (real_loss + fake_loss)
+                total_loss.backward()
+                optim_discriminator.step()
 
-        z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
+                z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
 
-        generated_imgs = gen(z)
+                generated_imgs = gen(z)
 
-        optim_generator.zero_grad()
-        discriminator_loss = loss(disc(generated_imgs), valid)
+                optim_generator.zero_grad()
+                discriminator_loss = loss(disc(generated_imgs), valid)
 
-        discriminator_loss.backward()
-        optim_generator.step()
+                discriminator_loss.backward()
+                optim_generator.step()
 
+                if (i % 400 == 0):
+                    print(total_loss.item())
 
-
-
-
-
-        if (i % 400 == 0):
-            print(total_loss.item())
-
-
-    print(total_loss.item())
+        print(total_loss.item())
+        save_image(generated_imgs.data[:25], "images/%d.png" % epoch, nrow=5, normalize=True)
 
 if __name__ == '__main__':
     main()
@@ -101,6 +98,7 @@ parser.add_argument('--img_size', type=int, default=28, help='image size')
 parser.add_argument('--seed', type=int, default=1337, help='seed for gaussian prior')
 parser.add_argument('--latent_dim', type=int, default=100, help='dimension of the latent space for the generator')
 parser.add_argument('--lr', type=float, default=0.0001, help='learning rate of generator and discriminator')
+parser.add_argument('--epochs', type=int, default=150, help='number of epochs during training')
 args = parser.parse_args()
 #+END_SRC
 
@@ -167,4 +165,10 @@ class generator(nn.Module):
         x = F.relu(self.fc2(x))
         x = torch.tanh(self.fc3(x))
         return x
+#+END_SRC
+
+
+* Image Viewer
+#+BEGIN_SRC python :tangle "image_viewer.py"
+
 #+END_SRC
