@@ -18,6 +18,8 @@ https://arxiv.org/abs/1406.2661
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
+import numpy as np
 
 <<discriminator>>
 
@@ -25,16 +27,38 @@ import torch.nn.functional as F
 
 def main():
     <<preprocessing>>
-    disc = discriminator()
-    gen = generator()
+    disc = discriminator((1, args.img_size, args.img_size))
+    # gen = generator()
+
+    rng = np.random.default_rng(seed=args.seed)
+    optim_discriminator = torch.optim.Adam(disc.parameters(), lr=args.lr)
+
+    loss = torch.nn.BCELoss()
 
     k = 1
-    for training_inter in range(500):
+    for i, (imgs, _) in enumerate(dataloader):
         for step in range(k):
-            ...
+            z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape))))
+            # generated_image = gen(z)
+            real_imgs = Variable(imgs.type(torch.Tensor))
+
+            valid = Variable(torch.Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)
+            fake = Variable(torch.Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)
+
+            optim_discriminator.zero_grad()
+            real_loss = loss(disc(real_imgs), valid)
+            fake_loss = loss(disc(z.detach()), fake)
+
+            total_loss = 0.5 * (real_loss + fake_loss)
+            total_loss.backward()
+            optim_discriminator.step()
+
+            if i % 500 ==0:
+                print(total_loss.item())
 
 if __name__ == '__main__':
     main()
+
 #+END_SRC
 
 * Preprocessing
@@ -50,6 +74,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument('data', help='path to data directory')
 parser.add_argument('--batch', type=int, default=64, help='batch size')
 parser.add_argument('--img_size', type=int, default=28, help='image size')
+parser.add_argument('--seed', type=int, default=1337, help='seed for gaussian prior')
+parser.add_argument('--latent_dim', type=int, default=100, help='dimension of the latent space for the generator')
+parser.add_argument('--lr', type=float, default=0.0001, help='learning rate of generator and discriminator')
 args = parser.parse_args()
 #+END_SRC
 
@@ -74,25 +101,24 @@ dataloader = torch.utils.data.DataLoader(
 
 * Discriminator
 :PROPERTIES:
-:header-args: :noweb-ref disciminator
+:header-args: :noweb-ref discriminator
 :END:
 
 #+BEGIN_SRC python
-
 class discriminator(nn.Module):
-    def __init__(self, image_size=28):
+    def __init__(self, image_shape):
       super(discriminator, self).__init__()
+      self.image_shape = image_shape
 
-
-      self.fc1 = nn.Linear(image_size * image_size, 128)
+      self.fc1 = nn.Linear(int(np.prod(self.image_shape)), 128)
       self.fc2 = nn.Linear(128, 64)
-      self.fc3 = nn.linear(64, 1)
+      self.fc3 = nn.Linear(64, 1)
 
     def forward(self, x):
-        x = x.view(-1, 1 * 4 *4)
+        x = x.view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        x = F.sigmoid(self.fc3(x))
+        x = torch.sigmoid(self.fc3(x))
         return x
 #+END_SRC
 
