@@ -170,5 +170,18 @@ class generator(nn.Module):
 
 * Image Viewer
 #+BEGIN_SRC python :tangle "image_viewer.py"
+import numpy as np
+from PIL import Image
+import argparse
+p = argparse.ArgumentParser()
+p.add_argument('image')
+args = p.parse_args()
+
+image = np.array(Image.open(args.image).convert('L'))
+
+from matplotlib import pyplot
+for i,img in enumerate(image):
+   reshaped = np.reshape(img, (28, 28))
+   Image.fromarray(reshaped).save(f'reshaped{i}.png')
 
 #+END_SRC
