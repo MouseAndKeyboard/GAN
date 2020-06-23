@@ -62,21 +62,20 @@ def main():
                 total_loss.backward()
                 optim_discriminator.step()
 
-                z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
+            z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
 
-                generated_imgs = gen(z)
+            generated_imgs = gen(z)
 
-                optim_generator.zero_grad()
-                discriminator_loss = loss(disc(generated_imgs), valid)
+            optim_generator.zero_grad()
+            generator_loss = loss(disc(generated_imgs), valid)
 
-                discriminator_loss.backward()
-                optim_generator.step()
+            generator_loss.backward()
+            optim_generator.step()
 
-                if (i % 400 == 0):
-                    print(total_loss.item())
-
-        print(total_loss.item())
-        save_image(generated_imgs.data[:25], "images/%d.png" % epoch, nrow=5, normalize=True)
+        print(f'({epoch}) [G]: {generator_loss} | [D]: {total_loss}')
+        if (epoch % 15 == 0):
+          torch.save(disc.state_dict(),f'./models/generator{epoch}.pt')
+          torch.save(gen.state_dict(),f'./models/discriminator{epoch}.pt')
 
 if __name__ == '__main__':
     main()
