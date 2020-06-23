@@ -27,38 +27,45 @@ import numpy as np
 
 def main():
     <<preprocessing>>
-    disc = discriminator((1, args.img_size, args.img_size))
-    # gen = generator()
+
+    img_shape = (1, args.img_size, args.img_size)
+    disc = discriminator(img_shape)
+    gen = generator(img_shape, args.latent_dim)
 
     rng = np.random.default_rng(seed=args.seed)
     optim_discriminator = torch.optim.Adam(disc.parameters(), lr=args.lr)
+    optim_generator = torch.optim.Adam(gen.parameters(), lr=args.lr)
 
     loss = torch.nn.BCELoss()
-
+    np.random.default_rng(seed=args.seed)
     k = 1
     for i, (imgs, _) in enumerate(dataloader):
-        for step in range(k):
-            z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape))))
-            # generated_image = gen(z)
+        for discrim_training_step in range(k):
+            z = Variable(torch.Tensor(rng.normal(0, 1, size=(imgs.shape[0], args.latent_dim))))
             real_imgs = Variable(imgs.type(torch.Tensor))
+
+            generated_imgs = gen(z)
 
             valid = Variable(torch.Tensor(imgs.size(0), 1).fill_(1.0), requires_grad=False)
             fake = Variable(torch.Tensor(imgs.size(0), 1).fill_(0.0), requires_grad=False)
-
             optim_discriminator.zero_grad()
+
             real_loss = loss(disc(real_imgs), valid)
-            fake_loss = loss(disc(z.detach()), fake)
+            fake_loss = loss(disc(generated_imgs.detach()), fake)
 
             total_loss = 0.5 * (real_loss + fake_loss)
             total_loss.backward()
             optim_discriminator.step()
 
-            if i % 500 ==0:
-                print(total_loss.item())
+
+        if (i % 400 == 0):
+            print(total_loss.item())
+
+
+    print(total_loss.item())
 
 if __name__ == '__main__':
     main()
-
 #+END_SRC
 
 * Preprocessing
@@ -127,3 +134,20 @@ class discriminator(nn.Module):
 :header-args: :noweb-ref generator
 :END:
 
+#+BEGIN_SRC python
+class generator(nn.Module):
+    def __init__(self, image_shape, n_latent):
+        super(generator, self).__init__()
+        self.image_shape = image_shape
+        self.n_latent = n_latent
+        self.fc1 = nn.Linear(n_latent, 128)
+        self.fc2 = nn.Linear(128, 256)
+        self.fc3 = nn.Linear(256, int(np.prod(self.image_shape)))
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = torch.tanh(self.fc3(x))
+        return x
+#+END_SRC
